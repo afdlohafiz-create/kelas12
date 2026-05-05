@@ -1,15 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import time
-import math
 import requests
 import io
 import base64
-try:
-    from fpdf import FPDF
-    HAS_FPDF = True
-except ImportError:
-    HAS_FPDF = False
 
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -27,16 +21,15 @@ def tampilkan_gambar_aman(url):
         }
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
-            # Mengubah gambar menjadi base64 agar kebal blokir browser/server
             encoded_string = base64.b64encode(response.content).decode()
             st.markdown(
                 f'<div style="display: flex; justify-content: center;"><img src="data:image/png;base64,{encoded_string}" width="400" style="border-radius: 10px; border: 2px solid #D6A2E8; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>', 
                 unsafe_allow_html=True
             )
         else:
-            st.warning("⚠️ Gagal menarik data gambar dari server sumber (Error 403/404).")
-    except Exception as e:
-        st.error(f"⚠️ Gangguan Koneksi Gambar: {e}")
+            st.warning("⚠️ Gagal menarik data gambar dari server sumber.")
+    except Exception:
+        st.error("⚠️ Gangguan Koneksi Gambar.")
 
 # --- 2. TEMA GRADASI UNGU MUDA (LILAC) ---
 st.markdown("""
@@ -159,7 +152,7 @@ if not st.session_state.kuis_aktif:
     with st.sidebar:
         st.markdown("<h2 style='text-align: center; color: #8E44AD;'>🛠️ Tools Ujian</h2>", unsafe_allow_html=True)
         with st.expander("📊 Tabel Periodik Unsur"):
-            st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Periodic_table_large-id.svg/800px-Periodic_table_large-id.svg.png")
+            tampilkan_gambar_aman("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Periodic_table_large-id.svg/800px-Periodic_table_large-id.svg.png")
         with st.expander("📝 Cheat Sheet Rumus"):
             st.markdown("""
             **Koligatif:** $\Delta Tf = Kf \cdot m \cdot i$ <br>
@@ -175,7 +168,7 @@ if not st.session_state.kuis_aktif:
         3. Gunakan **💡 Hint** (Skor -20%) & **⚠️ Ragu-Ragu** jika perlu.
         """)
         
-        st.session_state.nama_siswa = st.text_input("👤 Masukkan Nama Lengkap:", value=st.session_state.nama_siswa)
+        st.session_state.nama_siswa = st.text_input("👤 Masukkan Nama Lengkap (Untuk Rapor):", value=st.session_state.nama_siswa)
         pilih_bab = st.selectbox("📂 Pilih Bab Ujian (10 Soal per Bab):", list(DATABASE_SOAL.keys()))
         
         if st.button("Mulai Ujian Analitik Sekarang 🚀", use_container_width=True):
@@ -319,7 +312,7 @@ else:
                 analisis_topik[topik][0] += 1
             
         st.session_state.skor = int(skor_akhir)
-        gelar = "🏆 Mahaguru" if st.session_state.skor >= 90 else "🥇 Master" if st.session_state.skor >= 75 else "🥈 Alkemis" if st.session_state.skor >= 60 else "🥉 Pemula"
+        gelar = "Mahaguru" if st.session_state.skor >= 90 else "Master" if st.session_state.skor >= 75 else "Alkemis" if st.session_state.skor >= 60 else "Pemula"
 
         st.balloons()
         st.markdown("<h1 style='text-align: center; color: #8E44AD;'>Ujian Selesai!</h1>", unsafe_allow_html=True)
@@ -335,14 +328,15 @@ else:
                 else: st.error(f"❌ **{t}:** Lemah ({d[0]}/{d[1]})")
                 teks_analisis += f"{t}: {d[0]}/{d[1]} Benar\n"
             
-            if HAS_FPDF:
-                pdf = create_pdf(st.session_state.nama_siswa, st.session_state.skor, gelar, teks_analisis)
-                st.download_button("📄 Unduh Sertifikat (PDF)", data=pdf, file_name="Sertifikat.pdf", use_container_width=True)
+            # FITUR PDF DIHAPUS, DIGANTI TXT AGAR 100% AMAN SAAT DEPLOY
+            fallback_txt = f"SERTIFIKAT CBT KIMIA\nNama: {st.session_state.nama_siswa}\nSkor: {st.session_state.skor}\nGelar: {gelar}\n\nANALISIS NALAR:\n{teks_analisis}"
+            st.download_button("📄 Unduh Rapor (TXT)", data=fallback_txt, file_name="Rapor_Siswa.txt", use_container_width=True)
 
             st.markdown("---")
             for i, s in enumerate(daftar_soal):
                 with st.expander(f"Pembahasan Soal {i+1}"):
                     st.write(s['soal'])
+                    if "gambar" in s: tampilkan_gambar_aman(s["gambar"])
                     st.info(f"Jawaban: {s['jawaban']} | Pembahasan: {s['pembahasan']}")
                 
         if st.button("Selesai & Keluar 🏠", use_container_width=True):
